@@ -61,7 +61,7 @@ module.exports = function (config) {
     reporters: ['spec'],
     colors: true,
     browsers: [osName() === 'macOS Sierra' ? 'Chrome' : 'PhantomJS'], // This is the default browser to run, locally
-    logLevel: config.LOG_INFO,
+    logLevel: config.LOG_DEBUG,
     client: {
       mocha: {
         reporter: 'html'
@@ -94,7 +94,8 @@ module.exports = function (config) {
         sauceConfig = {
           build: 'TRAVIS #' + env.TRAVIS_BUILD_NUMBER +
           ' (' + env.TRAVIS_BUILD_ID + ')',
-          tunnelIdentifier: env.TRAVIS_JOB_NUMBER
+          tunnelIdentifier: env.TRAVIS_JOB_NUMBER,
+          startConnect: false
         };
         console.error('Configured SauceLabs');
       } else {
@@ -108,9 +109,11 @@ module.exports = function (config) {
       bundleDirpath = path.join(baseBundleDirpath, 'local');
       // don't need to run sauce from appveyor b/c travis does it.
       if (env.SAUCE_USERNAME || env.SAUCE_ACCESS_KEY) {
+        var id = require('os').hostname() + ' (' + Date.now() + ')';
         sauceConfig = {
-          build: require('os')
-            .hostname() + ' (' + Date.now() + ')'
+          build: id,
+          tunnelIdentifier: id,
+          startConnect: true
         };
         console.error('Configured SauceLabs');
       } else {
@@ -149,10 +152,11 @@ module.exports = function (config) {
 
 function addSauceTests (cfg) {
   cfg.reporters.push('saucelabs');
-  cfg.browsers = cfg.browsers.concat(browserPlatformPairs);
-  cfg.customLaunchers = Object.keys(browserPlatformPairs).reduce(function (acc, browser) {
+  var browsers = Object.keys(browserPlatformPairs);
+  cfg.browsers = cfg.browsers.concat(browsers);
+  cfg.customLaunchers = browsers.reduce(function (acc, browser) {
     var platform = browserPlatformPairs[browser];
-    var browserParts = browser.split('@')[0];
+    var browserParts = browser.split('@');
     var browserName = browserParts[0];
     var version = browserParts[1];
     acc[browser] = {
@@ -166,16 +170,17 @@ function addSauceTests (cfg) {
 
   // See https://github.com/karma-runner/karma-sauce-launcher
   // See https://github.com/bermi/sauce-connect-launcher#advanced-usage
-  cfg.sauceLabs = {
+  Object.assign(cfg.sauceLabs, {
     public: 'public',
-    startConnect: true,
     connectOptions: {
-      connectRetries: 5,
-      connectRetryTimeout: 60000
+      connectRetries: 2,
+      connectRetryTimeout: 30000,
+      detached: cfg.sauceLabs.startConnect,
+      tunnelIdentifier: cfg.sauceLabs.tunnelIdentifier
     }
-  };
+  });
 
-  cfg.concurrency = 10;
+  cfg.concurrency = Infinity;
   cfg.retryLimit = 1;
 
   // for slow browser booting, ostensibly

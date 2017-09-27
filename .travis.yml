@@ -48,3 +48,4 @@ addons:
     paths:
       - .karma/
       - ./mocha.js
+  sauce_connect: true
