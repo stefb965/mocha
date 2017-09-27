@@ -61,7 +61,7 @@ module.exports = function (config) {
     reporters: ['spec'],
     colors: true,
     browsers: [osName() === 'macOS Sierra' ? 'Chrome' : 'PhantomJS'], // This is the default browser to run, locally
-    logLevel: config.LOG_DEBUG,
+    logLevel: config.LOG_INFO,
     client: {
       mocha: {
         reporter: 'html'
