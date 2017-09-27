@@ -6,6 +6,16 @@ var mkdirp = require('mkdirp');
 var baseBundleDirpath = path.join(__dirname, '.karma');
 var osName = require('os-name');
 
+var browserPlatformPairs = {
+  'chrome@latest': 'Windows 8',
+  'MicrosoftEdge@latest': 'Windows 10',
+  'internet explorer@11.0': 'Windows 8.1',
+  'internet explorer@10.0': 'Windows 8',
+  'internet explorer@9.0': 'Windows 7',
+  'firefox@latest': 'Windows 10',
+  'safari@latest': 'OS X 10.12'
+};
+
 module.exports = function (config) {
   var bundleDirpath;
   var cfg = {
@@ -79,18 +89,16 @@ module.exports = function (config) {
     if (env.TRAVIS) {
       console.error('Travis-CI detected');
       bundleDirpath = path.join(baseBundleDirpath, process.env.TRAVIS_BUILD_ID);
-      if (env.BROWSER && env.PLATFORM) {
-        if (env.SAUCE_USERNAME && env.SAUCE_ACCESS_KEY) {
-          // correlate build/tunnel with Travis
-          sauceConfig = {
-            build: 'TRAVIS #' + env.TRAVIS_BUILD_NUMBER +
-            ' (' + env.TRAVIS_BUILD_ID + ')',
-            tunnelIdentifier: env.TRAVIS_JOB_NUMBER
-          };
-          console.error('Configured SauceLabs');
-        } else {
-          console.error('No SauceLabs credentials present');
-        }
+      if (env.SAUCE_USERNAME && env.SAUCE_ACCESS_KEY) {
+        // correlate build/tunnel with Travis
+        sauceConfig = {
+          build: 'TRAVIS #' + env.TRAVIS_BUILD_NUMBER +
+          ' (' + env.TRAVIS_BUILD_ID + ')',
+          tunnelIdentifier: env.TRAVIS_JOB_NUMBER
+        };
+        console.error('Configured SauceLabs');
+      } else {
+        console.error('No SauceLabs credentials present');
       }
     } else if (env.APPVEYOR) {
       console.error('AppVeyor detected');
@@ -140,16 +148,21 @@ module.exports = function (config) {
 };
 
 function addSauceTests (cfg) {
-  var env = process.env;
   cfg.reporters.push('saucelabs');
-  cfg.customLaunchers = {};
-  cfg.customLaunchers[env.BROWSER] = {
-    base: 'SauceLabs',
-    browserName: env.BROWSER.split('@')[0],
-    version: env.BROWSER.split('@')[1],
-    platform: env.PLATFORM
-  };
-  cfg.browsers = [env.BROWSER];
+  cfg.browsers = cfg.browsers.concat(browserPlatformPairs);
+  cfg.customLaunchers = Object.keys(browserPlatformPairs).reduce(function (acc, browser) {
+    var platform = browserPlatformPairs[browser];
+    var browserParts = browser.split('@')[0];
+    var browserName = browserParts[0];
+    var version = browserParts[1];
+    acc[browser] = {
+      base: 'SauceLabs',
+      browserName: browserName,
+      version: version,
+      platform: platform
+    };
+    return acc;
+  }, {});
 
   // See https://github.com/karma-runner/karma-sauce-launcher
   // See https://github.com/bermi/sauce-connect-launcher#advanced-usage
@@ -157,14 +170,13 @@ function addSauceTests (cfg) {
     public: 'public',
     startConnect: true,
     connectOptions: {
-      connectRetries: 10,
+      connectRetries: 5,
       connectRetryTimeout: 60000
     }
   };
 
-  cfg.concurrency = 5;
-
-  cfg.retryLimit = 5;
+  cfg.concurrency = 10;
+  cfg.retryLimit = 1;
 
   // for slow browser booting, ostensibly
   cfg.captureTimeout = 120000;
